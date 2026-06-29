@@ -27,6 +27,26 @@ decoder** — no C libraries, no external runtime dependencies.
 - **Renderers:** terminal (Unicode half-blocks), SVG, PNG, ASCII, Netpbm PBM.
 - Target **Zig 0.16.0**.
 
+## Install
+
+Download a prebuilt binary for your platform from the
+[Releases](https://github.com/smytheb/qr-zig/releases) page, verify it, and put
+it on your `PATH`:
+
+```sh
+# pick the asset for your platform, e.g. x86_64-linux-musl
+tar -xzf qr-x86_64-linux-musl.tar.gz
+sha256sum -c SHA256SUMS                 # optional: verify the checksum
+sudo install qr-x86_64-linux-musl/qr /usr/local/bin/
+```
+
+The Linux binaries are statically linked (musl), so they have no runtime
+dependencies. Or build from source with Zig 0.16.0:
+
+```sh
+zig build -Doptimize=ReleaseSafe        # binary at zig-out/bin/qr
+```
+
 ## Build & run
 
 ```sh
@@ -110,3 +130,17 @@ suite needs no Python.
 
 0. Image front-end (binarization / finder
    detection / perspective for arbitrary photos)
+
+## References
+
+- [ISO/IEC 18004:2015](https://www.iso.org/standard/62021.html) — the QR Code
+  symbology standard this implementation targets.
+- [qrcode.com](https://www.qrcode.com/en/) — DENSO WAVE's official QR Code site
+  ([standards index](https://www.qrcode.com/en/about/standards.html)).
+
+## Trademark
+
+"QR Code" is a registered trademark of
+[DENSO WAVE INCORPORATED](https://www.denso-wave.com/en/). This is an
+independent, unaffiliated implementation of the symbology standardized as
+ISO/IEC 18004; it is not endorsed by or associated with DENSO WAVE.
