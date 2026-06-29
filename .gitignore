@@ -1,0 +1,11 @@
+# Zig build artifacts
+.zig-cache/
+zig-out/
+
+# Editor / OS noise
+*.swp
+.DS_Store
+
+# Local test scratch (rasterized QR images from the cross-decoder check)
+/scratch/
+*.png
