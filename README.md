@@ -8,6 +8,8 @@ Use it two ways: depend on the `qr` module from your own Zig project (see
 [Use as a library](#use-as-a-library)), or install the `qr` binary and generate
 codes from the shell.
 
+![qr terminal demo](docs/demo.gif)
+
 > Status: the encoder works end-to-end. It produces spec-correct, scannable QR
 > codes with **optimal mixed-mode segmentation** (numeric / alphanumeric / byte),
 > **ECI / UTF-8** declaration, **versions 1–40**, all EC levels — verified
@@ -31,6 +33,32 @@ codes from the shell.
 - Versions 1–40, all four EC levels (L/M/Q/H).
 - **Renderers:** terminal (Unicode half-blocks), SVG, PNG, ASCII, Netpbm PBM.
 - Target **Zig 0.16.0**.
+
+## Benchmarks
+
+Pure Zig with zero dependencies — encoding and decoding are fast and the binary
+is tiny. Measured with `zig build bench` (ReleaseFast, single-threaded), with
+allocations served from a reset-per-iteration arena:
+
+| Payload                     | Symbol | Encode¹ | Decode² |
+| --------------------------- | ------ | ------- | ------- |
+| `HELLO`                     | v1     | ~62 µs  | ~4 µs   |
+| `https://ziglang.org/learn/overview/` | v3 | ~177 µs | ~14 µs  |
+
+| Binary size (`-Doptimize=ReleaseSmall`) | Dependencies |
+| --------------------------------------- | ------------ |
+| ~204 KiB (static musl)                  | **0**        |
+
+¹ Encode is text → masked matrix, including automatic version choice and
+**evaluating all 8 mask patterns** with penalty scoring (the dominant cost).
+² Decode is the realistic `qr decode` path: parse a rendered symbol back into a
+matrix, then recover the text with Reed-Solomon correction.
+
+Numbers are a snapshot from one machine — reproduce (and see your own) with:
+
+```sh
+zig build bench
+```
 
 ## Install
 
@@ -195,6 +223,11 @@ zig build && python3 scripts/oracle_check.py    # needs: pip install qrcode
 
 A golden fixture in `zig build test` also locks in a verified matrix so the Zig
 suite needs no Python.
+
+## Demo
+
+The terminal recording at the top of this README is generated from
+[`demo.tape`](demo.tape) with [VHS](https://github.com/charmbracelet/vhs). 
 
 ## Roadmap
 

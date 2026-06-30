@@ -59,6 +59,23 @@ pub fn build(b: *std.Build) void {
     });
     test_step.dependOn(&b.addRunArtifact(cli_tests).step);
 
+    // ---- `zig build bench` --------------------------------------------------
+    // Encode/decode micro-benchmarks. Always built ReleaseFast so the numbers
+    // mean something regardless of the optimize flag passed to `zig build`.
+    const bench_exe = b.addExecutable(.{
+        .name = "bench",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("bench/bench.zig"),
+            .target = target,
+            .optimize = .ReleaseFast,
+            .imports = &.{.{ .name = "qr", .module = qr_mod }},
+        }),
+    });
+    const bench_run = b.addRunArtifact(bench_exe);
+    if (b.args) |args| bench_run.addArgs(args);
+    const bench_step = b.step("bench", "Run encode/decode micro-benchmarks (ReleaseFast)");
+    bench_step.dependOn(&bench_run.step);
+
     // ---- `zig build examples` ----------------------------------------------
     // Build and run each example as a standalone consumer of the `qr` module,
     // so the README snippets cannot rot.
