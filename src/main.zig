@@ -1,14 +1,10 @@
 //! `qr` — a lightweight, dependency-free QR code generator for the terminal.
 
 const std = @import("std");
-const qr = @import("qr/root.zig");
-const ascii = @import("render/ascii.zig");
-const terminal = @import("render/terminal.zig");
-const svg = @import("render/svg.zig");
-const pbm = @import("render/pbm.zig");
-const png = @import("render/png.zig");
-const decode = @import("decode/decode.zig");
-const matrix_input = @import("decode/matrix_input.zig");
+const qr = @import("qr");
+const render = qr.render;
+const decode = qr.decode;
+const matrix_input = qr.matrix_input;
 
 const Format = enum { terminal, ascii, svg, pbm, png };
 
@@ -277,15 +273,15 @@ fn printDecodeInfo(io: std.Io, dec: decode.Decoded) !void {
 
 fn renderMatrix(allocator: std.mem.Allocator, w: *std.Io.Writer, m: *const qr.Matrix, opts: Options) !void {
     switch (opts.format) {
-        .terminal => try terminal.render(w, m, .{ .quiet = opts.quiet, .invert = opts.invert }),
-        .ascii => try ascii.render(w, m, .{
+        .terminal => try render.terminal.render(w, m, .{ .quiet = opts.quiet, .invert = opts.invert }),
+        .ascii => try render.ascii.render(w, m, .{
             .quiet = opts.quiet,
             .dark = if (opts.invert) ' ' else '#',
             .light = if (opts.invert) '#' else ' ',
         }),
-        .svg => try svg.render(w, m, .{ .quiet = opts.quiet, .scale = opts.scale orelse 8 }),
-        .pbm => try pbm.render(w, m, .{ .quiet = opts.quiet, .scale = opts.scale orelse 1 }),
-        .png => try png.render(allocator, w, m, .{ .quiet = opts.quiet, .scale = opts.scale orelse 8 }),
+        .svg => try render.svg.render(w, m, .{ .quiet = opts.quiet, .scale = opts.scale orelse 8 }),
+        .pbm => try render.pbm.render(w, m, .{ .quiet = opts.quiet, .scale = opts.scale orelse 1 }),
+        .png => try render.png.render(allocator, w, m, .{ .quiet = opts.quiet, .scale = opts.scale orelse 8 }),
     }
 }
 
@@ -331,13 +327,9 @@ fn printInfo(out: *std.Io.Writer) !void {
     }
 }
 
-test {
-    _ = qr;
-    _ = png;
-    _ = @import("decode/decode.zig");
-    _ = @import("decode/matrix_input.zig");
-}
-
+// The library suite (qr/render/decode inline tests) runs via the separate
+// `lib_tests` artifact rooted at src/root.zig; this file carries only the CLI's
+// own integration tests.
 test "renderers produce well-formed output for a known matrix" {
     const a = std.testing.allocator;
     var g = try qr.generateWithMask(a, "Hi!", .m, 0, .auto);
@@ -347,23 +339,23 @@ test "renderers produce well-formed output for a known matrix" {
 
     {
         var w = std.Io.Writer.fixed(&buf);
-        try ascii.render(&w, &g.matrix, .{ .quiet = 0, .dark = '#', .light = '.' });
+        try render.ascii.render(&w, &g.matrix, .{ .quiet = 0, .dark = '#', .light = '.' });
         try std.testing.expect(std.mem.startsWith(u8, w.buffered(), "#######.......#######\n"));
     }
     {
         var w = std.Io.Writer.fixed(&buf);
-        try pbm.render(&w, &g.matrix, .{ .quiet = 1, .scale = 2 });
+        try render.pbm.render(&w, &g.matrix, .{ .quiet = 1, .scale = 2 });
         try std.testing.expect(std.mem.startsWith(u8, w.buffered(), "P1\n46 46\n"));
     }
     {
         var w = std.Io.Writer.fixed(&buf);
-        try svg.render(&w, &g.matrix, .{ .quiet = 4, .scale = 8 });
+        try render.svg.render(&w, &g.matrix, .{ .quiet = 4, .scale = 8 });
         try std.testing.expect(std.mem.indexOf(u8, w.buffered(), "viewBox=\"0 0 29 29\"") != null);
         try std.testing.expect(std.mem.endsWith(u8, w.buffered(), "</svg>\n"));
     }
     {
         var w = std.Io.Writer.fixed(&buf);
-        try terminal.render(&w, &g.matrix, .{ .quiet = 0, .color = false });
+        try render.terminal.render(&w, &g.matrix, .{ .quiet = 0, .color = false });
         try std.testing.expectEqual(@as(usize, 11), std.mem.count(u8, w.buffered(), "\n"));
     }
 }

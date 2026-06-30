@@ -1,7 +1,12 @@
 # qr
 
-A lightweight, idiomatic, **pure-Zig** command-line QR code **generator and
-decoder** — no C libraries, no external runtime dependencies.
+A lightweight, idiomatic, **pure-Zig** QR code **library** — encode, render,
+and decode — with an official **command-line tool** built on top of it. No C
+libraries, no external runtime dependencies.
+
+Use it two ways: depend on the `qr` module from your own Zig project (see
+[Use as a library](#use-as-a-library)), or install the `qr` binary and generate
+codes from the shell.
 
 > Status: the encoder works end-to-end. It produces spec-correct, scannable QR
 > codes with **optimal mixed-mode segmentation** (numeric / alphanumeric / byte),
@@ -73,13 +78,75 @@ for dark displays (scanners that support inverted codes, including iOS).
 > `build.zig.zon`. If the first `zig build` reports a `fingerprint` mismatch,
 > copy the value it prints into `build.zig.zon`.
 
+## Use as a library
+
+The encoder, renderers, and decoder are published as a single `qr` module that
+your project can depend on. Add it to your `build.zig.zon`:
+
+```sh
+zig fetch --save git+https://github.com/smytheb/qr-zig
+```
+
+Then wire the module into your build graph in `build.zig`:
+
+```zig
+const qr = b.dependency("qr", .{
+    .target = target,
+    .optimize = optimize,
+}).module("qr");
+exe.root_module.addImport("qr", qr);
+```
+
+Now `@import("qr")` gives you the whole pipeline. The public surface:
+
+- `qr.generate(allocator, text, level, eci)` → `Generated` (`.matrix` + metadata;
+  call `.deinit()`). Also `generateWithMask` and `generateUnmasked`.
+- `qr.render.{terminal, svg, png, pbm, ascii}` — each a `render(writer, &matrix,
+  options)`.
+- `qr.matrix_input.parse` + `qr.decode.decodeMatrix` — recover text from a
+  rendered symbol.
+- Types: `qr.EcLevel`, `qr.Matrix`, `qr.Generated`, `qr.Eci`; low-level encoder
+  submodules (`qr.encode`, `qr.segment`, `qr.tables`, …) are exposed too.
+
+**Encode and render to SVG** (`examples/encode_svg.zig`):
+
+```zig
+const qr = @import("qr");
+
+var code = try qr.generate(allocator, "https://ziglang.org", .m, .auto);
+defer code.deinit();
+try qr.render.svg.render(writer, &code.matrix, .{ .quiet = 4, .scale = 8 });
+```
+
+**Round-trip: encode, render, decode back** (`examples/decode_roundtrip.zig`):
+
+```zig
+const qr = @import("qr");
+
+var code = try qr.generate(allocator, "Hello, Zig!", .m, .auto);
+defer code.deinit();
+
+var grid: std.Io.Writer.Allocating = .init(allocator);
+defer grid.deinit();
+try qr.render.ascii.render(&grid.writer, &code.matrix, .{ .quiet = 2 });
+
+var parsed = try qr.matrix_input.parse(allocator, grid.written());
+defer parsed.deinit();
+const decoded = try qr.decode.decodeMatrix(allocator, &parsed); // -> "Hello, Zig!"
+```
+
+Both snippets live in `examples/` as runnable programs; `zig build examples`
+compiles and runs them, so they stay in sync with the API.
+
 ## Layout
 
 ```
 src/
-  main.zig            CLI entry: argument dispatch, arena-per-command
+  root.zig            library module root: re-exports encode + render + decode
+  main.zig            official CLI: argument dispatch, arena-per-command;
+                      a consumer of the `qr` module like any downstream project
   qr/
-    root.zig          public API surface
+    root.zig          encoder namespace (re-exported by src/root.zig)
     galois.zig        GF(256) arithmetic (comptime exp/log tables)   
     reed_solomon.zig  RS encode + decode (syndrome/BM/Chien/Forney)  
     bitstream.zig     MSB-first bit writer + reader                  
@@ -99,7 +166,10 @@ src/
   decode/
     reader.zig        matrix -> codewords (reverse zigzag, RS fix)  
     matrix_input.zig  parse ascii/pbm/png rendering into a matrix   
-    decode.zig        readFormat -> unmask -> read -> segments       
+    decode.zig        readFormat -> unmask -> read -> segments
+examples/
+  encode_svg.zig      generate a code and render it as SVG
+  decode_roundtrip.zig encode -> render -> decode back to text       
 ```
 
 ## Verifying output
@@ -128,9 +198,25 @@ suite needs no Python.
 
 ## Roadmap
 
-0. Image front-end (binarization / finder
-   detection / perspective for arbitrary photos)
-
+0. Scaffold (build, CLI skeleton) — **done**
+1. Galois field + Reed-Solomon — **done**
+2. Byte-mode data encoding + capacity tables — **done**
+3. Matrix assembly (finders, timing, alignment, zigzag placement) — **done**
+4. Masking + format/version info → scannable code — **done** (oracle-verified)
+5. Renderers (terminal / SVG / PNG / PBM / ASCII) — **done**
+6. CLI polish (stdin, `-o`, `info`, clean errors) — **done**
+7. Validation harness (`scripts/oracle_check.py`, golden test) — **done**
+8. Growth: versions 11–40 **done**, numeric/alphanumeric modes **done**,
+   optimal mixed-mode segmentation **done**, ECI/UTF-8 **done**, native PNG
+   **done**; 
+9. Decoder: symbol decode (matrix → text, RS correction) + `qr decode` for the
+   ascii / pbm / png formats — **done**; image front-end (binarization / finder
+   detection / perspective for arbitrary photos) — **todo**. Structured
+   append — **todo**.
+10. Micro QR Code (M1–M4): the compact symbology with its own version sizes,
+    encoding modes, format info, and masking — **todo** (encode + decode + a
+    `--micro` CLI flag).
+    
 ## References
 
 - [ISO/IEC 18004:2015](https://www.iso.org/standard/62021.html) — the QR Code
