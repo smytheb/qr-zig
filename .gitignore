@@ -3,7 +3,7 @@
 zig-out/
 
 # Release artifacts (cross-compiled tarballs + checksums)
-/dist/
+dist/
 
 # Editor / OS noise
 *.swp
