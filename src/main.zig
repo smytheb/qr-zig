@@ -51,7 +51,7 @@ const usage =
     \\
 ;
 
-const version_string = "qr 0.1.0";
+const version_string = "qr 0.2.0";
 
 pub fn main(init: std.process.Init) !void {
     const io = init.io;

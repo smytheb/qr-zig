@@ -2,6 +2,9 @@
 .zig-cache/
 zig-out/
 
+# Release artifacts (cross-compiled tarballs + checksums)
+/dist/
+
 # Editor / OS noise
 *.swp
 .DS_Store
